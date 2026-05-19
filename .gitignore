@@ -1,0 +1,5 @@
+# Ignore local database credential file
+db_credentials.py
+
+# Ignore local Python virtual environment
+.venv
