@@ -1,9 +1,6 @@
 
 import json
-import math
-import time
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 import pyodbc
@@ -26,8 +23,8 @@ AWS_REGION = "us-east-1"
 
 STATE_FILE = "sync_state.json"
 
-BATCH_SIZE = 25
-MAX_WORKERS = 8
+MSSQL_PAGE_SIZE = 10000
+DYNAMODB_BATCH_SIZE = 1000
 
 
 ###############################################################################
@@ -81,13 +78,13 @@ def save_last_sync_timestamp(timestamp_str):
 ###############################################################################
 
 
-def fetch_updated_rows(last_sync_timestamp):
+def fetch_updated_rows(last_sync_timestamp, page_size=MSSQL_PAGE_SIZE):
     """
-    Read only records updated since last sync.
+    Yield MSSQL rows updated since the last sync in pages.
     """
 
     sql = """
-    SELECT --TOP(100000)
+    SELECT
           PK
         , studentId
         , active_level
@@ -108,22 +105,20 @@ def fetch_updated_rows(last_sync_timestamp):
     """
 
     conn = pyodbc.connect(MSSQL_CONNECTION_STRING)
-
     cursor = conn.cursor()
-
     cursor.execute(sql, last_sync_timestamp)
 
     columns = [column[0] for column in cursor.description]
 
-    rows = []
+    while True:
+        rows = cursor.fetchmany(page_size)
+        if not rows:
+            break
 
-    for row in cursor.fetchall():
-        rows.append(dict(zip(columns, row)))
+        yield [dict(zip(columns, row)) for row in rows]
 
     cursor.close()
     conn.close()
-
-    return rows
 
 
 ###############################################################################
@@ -251,70 +246,44 @@ def run_sync():
     sync_started = datetime.utcnow()
 
     print("Loading last sync state...")
-
     last_sync_timestamp = load_last_sync_timestamp()
-
     print(f"Last sync timestamp: {last_sync_timestamp}")
 
-    print("Reading MSSQL updated rows...")
+    print("Reading MSSQL updated rows in pages...")
 
-    rows = fetch_updated_rows(last_sync_timestamp)
+    processed = 0
+    max_modified_at = None
 
-    total_rows = len(rows)
+    for page_number, rows_page in enumerate(
+        fetch_updated_rows(last_sync_timestamp), start=1
+    ):
+        page_size = len(rows_page)
+        print(f"Read page {page_number} with {page_size} rows from MSSQL")
 
-    print(f"Rows to sync: {total_rows}")
+        if page_size == 0:
+            continue
 
-    if total_rows == 0:
+        for batch_number, batch_rows in enumerate(
+            chunked(rows_page, DYNAMODB_BATCH_SIZE), start=1
+        ):
+            count = write_batch(batch_rows)
+            processed += count
+
+            for row in batch_rows:
+                row_modified_at = row["modifiedAt"]
+                if max_modified_at is None or row_modified_at > max_modified_at:
+                    max_modified_at = row_modified_at
+
+            print(
+                f"Processed page {page_number}, batch {batch_number}: "
+                f"{processed} rows total"
+            )
+
+    if processed == 0:
         print("Nothing to sync.")
         return
 
-    batches = list(chunked(rows, BATCH_SIZE))
-
-    total_batches = len(batches)
-
-    print(f"Total batches: {total_batches}")
-
-    processed = 0
-
-    max_modified_at = None
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-
-        future_to_batch = {
-            executor.submit(write_batch, batch): batch
-            for batch in batches
-        }
-
-        for future in as_completed(future_to_batch):
-
-            batch = future_to_batch[future]
-
-            try:
-                count = future.result()
-
-                processed += count
-
-                for row in batch:
-
-                    row_modified_at = row["modifiedAt"]
-
-                    if (
-                        max_modified_at is None
-                        or row_modified_at > max_modified_at
-                    ):
-                        max_modified_at = row_modified_at
-
-                print(
-                    f"Processed {processed}/{total_rows} rows"
-                )
-
-            except Exception as e:
-                print("Batch failed:")
-                print(e)
-                raise
-
     if max_modified_at is not None:
-
         save_last_sync_timestamp(
             max_modified_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
         )
