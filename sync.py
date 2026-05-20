@@ -87,7 +87,7 @@ def fetch_updated_rows(last_sync_timestamp):
     """
 
     sql = """
-    SELECT TOP(1000)
+    SELECT --TOP(100000)
           PK
         , studentId
         , active_level
