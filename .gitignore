@@ -1,5 +1,7 @@
 # Ignore local database credential file
 db_credentials.py
+sync_state.json
 
 # Ignore local Python virtual environment
 .venv
+
