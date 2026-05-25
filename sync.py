@@ -23,7 +23,7 @@ AWS_REGION = "us-east-1"
 
 STATE_FILE = "sync_state.json"
 
-MSSQL_PAGE_SIZE = 10000
+MSSQL_PAGE_SIZE = 50000
 DYNAMODB_BATCH_SIZE = 1000
 
 
@@ -43,22 +43,22 @@ table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 ###############################################################################
 
 
-def load_last_sync_timestamp():
+def load_last_sync_state():
     """
-    Load last successful sync timestamp.
+    Load last successful sync cursor (modifiedAt + studentId).
     """
 
     try:
         with open(STATE_FILE, "r") as f:
             state = json.load(f)
-            return state["lastModifiedAt"]
+            return state["lastModifiedAt"], state.get("lastStudentId")
 
     except FileNotFoundError:
-        return "2010-01-01T00:00:00.000"
+        return "2010-01-01T00:00:00.000", None
 
 
 
-def save_last_sync_timestamp(timestamp_str):
+def save_last_sync_state(timestamp_str, student_id):
     """
     Persist successful sync watermark.
     """
@@ -66,7 +66,8 @@ def save_last_sync_timestamp(timestamp_str):
     with open(STATE_FILE, "w") as f:
         json.dump(
             {
-                "lastModifiedAt": timestamp_str
+                "lastModifiedAt": timestamp_str,
+                "lastStudentId": student_id,
             },
             f,
             indent=2
@@ -78,35 +79,60 @@ def save_last_sync_timestamp(timestamp_str):
 ###############################################################################
 
 
-def fetch_updated_rows(last_sync_timestamp, page_size=MSSQL_PAGE_SIZE):
+def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_SIZE):
     """
     Yield MSSQL rows updated since the last sync in pages.
+    Uses a composite (modifiedAt, studentId) cursor to handle ties.
     """
 
-    sql = """
-    SELECT
-          PK
-        , studentId
-        , active_level
-        , enrollment
-        , country_iso
-        , Is_B2B__c
-        , gender
-        , ageGroup
-        , studentHistory
-        , createdAt
-        , modifiedAt
+    if last_student_id is None:
+        sql = """
+        SELECT
+              PK
+            , studentId
+            , active_level
+            , enrollment
+            , country_iso
+            , Is_B2B__c
+            , gender
+            , ageGroup
+            , studentHistory
+            , createdAt
+            , modifiedAt
 
-    FROM [SUP].[ml].[oead_student_features]
+        FROM [SUP].[ml].[oead_student_features] WITH (NOLOCK)
 
-    WHERE modifiedAt > ?
+        WHERE modifiedAt > ?
 
-    ORDER BY modifiedAt ASC
-    """
+        ORDER BY modifiedAt ASC, studentId ASC
+        """
+        params = (last_modified_at,)
+    else:
+        sql = """
+        SELECT
+              PK
+            , studentId
+            , active_level
+            , enrollment
+            , country_iso
+            , Is_B2B__c
+            , gender
+            , ageGroup
+            , studentHistory
+            , createdAt
+            , modifiedAt
+
+        FROM [SUP].[ml].[oead_student_features] WITH (NOLOCK)
+
+        WHERE (modifiedAt > ?) OR (modifiedAt = ? AND studentId > ?)
+
+        ORDER BY modifiedAt ASC, studentId ASC
+        """
+        params = (last_modified_at, last_modified_at, last_student_id)
 
     conn = pyodbc.connect(MSSQL_CONNECTION_STRING)
     cursor = conn.cursor()
-    cursor.execute(sql, last_sync_timestamp)
+    cursor.execute(sql, params)
 
     columns = [column[0] for column in cursor.description]
 
@@ -246,16 +272,17 @@ def run_sync():
     sync_started = datetime.utcnow()
 
     print("Loading last sync state...")
-    last_sync_timestamp = load_last_sync_timestamp()
-    print(f"Last sync timestamp: {last_sync_timestamp}")
+    last_modified_at, last_student_id = load_last_sync_state()
+    print(f"Last sync cursor: modifiedAt={last_modified_at}, studentId={last_student_id}")
 
     print("Reading MSSQL updated rows in pages...")
 
     processed = 0
-    max_modified_at = None
+    cursor_modified_at = None
+    cursor_student_id = None
 
     for page_number, rows_page in enumerate(
-        fetch_updated_rows(last_sync_timestamp), start=1
+        fetch_updated_rows(last_modified_at, last_student_id), start=1
     ):
         page_size = len(rows_page)
         print(f"Read page {page_number} with {page_size} rows from MSSQL")
@@ -269,10 +296,9 @@ def run_sync():
             count = write_batch(batch_rows)
             processed += count
 
-            for row in batch_rows:
-                row_modified_at = row["modifiedAt"]
-                if max_modified_at is None or row_modified_at > max_modified_at:
-                    max_modified_at = row_modified_at
+            last_row = batch_rows[-1]
+            cursor_modified_at = last_row["modifiedAt"]
+            cursor_student_id = last_row["studentId"]
 
             print(
                 f"Processed page {page_number}, batch {batch_number}: "
@@ -283,9 +309,10 @@ def run_sync():
         print("Nothing to sync.")
         return
 
-    if max_modified_at is not None:
-        save_last_sync_timestamp(
-            max_modified_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+    if cursor_modified_at is not None:
+        save_last_sync_state(
+            cursor_modified_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+            cursor_student_id,
         )
 
     elapsed = datetime.utcnow() - sync_started
