@@ -86,6 +86,7 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
     """
 
     if last_student_id is None:
+        print(f"Query filter: modifiedAt > '{last_modified_at}'")
         sql = """
         SELECT
               PK
@@ -128,6 +129,7 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
 
         ORDER BY modifiedAt ASC, studentId ASC
         """
+        print(f"Query filter: modifiedAt > '{last_modified_at}' OR (modifiedAt = '{last_modified_at}' AND studentId > '{last_student_id}')")
         params = (last_modified_at, last_modified_at, last_student_id)
 
     conn = pyodbc.connect(MSSQL_CONNECTION_STRING)
@@ -269,7 +271,7 @@ def chunked(data, chunk_size):
 
 def run_sync():
 
-    sync_started = datetime.utcnow()
+    sync_started = datetime.now(timezone.utc)
 
     print("Loading last sync state...")
     last_modified_at, last_student_id = load_last_sync_state()
@@ -315,7 +317,7 @@ def run_sync():
             cursor_student_id,
         )
 
-    elapsed = datetime.utcnow() - sync_started
+    elapsed = datetime.now(timezone.utc) - sync_started
 
     print("Sync completed.")
     print(f"Rows synced: {processed}")
