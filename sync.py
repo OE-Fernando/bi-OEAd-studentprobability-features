@@ -280,8 +280,6 @@ def run_sync():
     print("Reading MSSQL updated rows in pages...")
 
     processed = 0
-    cursor_modified_at = None
-    cursor_student_id = None
 
     for page_number, rows_page in enumerate(
         fetch_updated_rows(last_modified_at, last_student_id), start=1
@@ -305,24 +303,19 @@ def run_sync():
             count = write_batch(batch_rows)
             processed += count
 
-            last_row = batch_rows[-1]
-            cursor_modified_at = last_row["modifiedAt"]
-            cursor_student_id = last_row["studentId"]
-
             print(
                 f"Processed page {page_number}, batch {batch_number}: "
                 f"{processed} rows total"
             )
 
+        last_modified_at = page_last_modified_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+        last_student_id = page_last_student_id
+        save_last_sync_state(last_modified_at, last_student_id)
+        print(f"State saved: modifiedAt='{last_modified_at}', studentId={last_student_id}")
+
     if processed == 0:
         print("Nothing to sync.")
         return
-
-    if cursor_modified_at is not None:
-        save_last_sync_state(
-            cursor_modified_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
-            cursor_student_id,
-        )
 
     elapsed = datetime.now(timezone.utc) - sync_started
 
