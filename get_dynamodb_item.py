@@ -5,7 +5,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-DYNAMODB_TABLE_NAME = "oead_student_features"
+DYNAMODB_TABLE_NAME = "biba_oead_student_features"
 AWS_REGION = "us-east-1"
 
 # --------------------------------------------------------------------------
