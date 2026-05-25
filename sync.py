@@ -129,7 +129,7 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
 
         ORDER BY modifiedAt ASC, studentId ASC
         """
-        print(f"Query filter: modifiedAt > '{last_modified_at}' OR (modifiedAt = '{last_modified_at}' AND studentId > '{last_student_id}')")
+        print(f"Query filter: modifiedAt > '{last_modified_at}' OR (modifiedAt = '{last_modified_at}' AND studentId > {last_student_id})")
         params = (last_modified_at, last_modified_at, last_student_id)
 
     conn = pyodbc.connect(MSSQL_CONNECTION_STRING)
@@ -287,7 +287,14 @@ def run_sync():
         fetch_updated_rows(last_modified_at, last_student_id), start=1
     ):
         page_size = len(rows_page)
-        print(f"Read page {page_number} with {page_size} rows from MSSQL")
+        last_row_in_page = rows_page[-1] if rows_page else None
+        page_last_modified_at = last_row_in_page["modifiedAt"] if last_row_in_page else None
+        page_last_student_id = last_row_in_page["studentId"] if last_row_in_page else None
+        print(
+            f"Read page {page_number} with {page_size} rows from MSSQL"
+            f" | fetch cursor: modifiedAt='{last_modified_at}', studentId={last_student_id}"
+            f" | page last: modifiedAt='{page_last_modified_at}', studentId={page_last_student_id}"
+        )
 
         if page_size == 0:
             continue
