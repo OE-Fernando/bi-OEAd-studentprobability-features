@@ -98,6 +98,7 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
             , gender
             , ageGroup
             , studentHistory
+            , language
             , createdAt
             , modifiedAt
 
@@ -120,6 +121,7 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
             , gender
             , ageGroup
             , studentHistory
+            , language
             , createdAt
             , modifiedAt
 
@@ -207,6 +209,7 @@ def build_dynamodb_item(row):
         "gender": row["gender"],
         "ageGroup": row["ageGroup"],
         "studentHistory": row["studentHistory"],
+        "language": row["language"],
 
         "createdAt": datetime_to_iso(row["createdAt"]),
 
