@@ -18,6 +18,7 @@ CREATE TABLE [ml].[oead_student_features](
 	[gender] [nvarchar](255) NULL,
 	[ageGroup] [varchar](5) NULL,
 	[studentHistory] [varchar](5) NULL,
+	[language] [varchar](2) NULL,
 	[createdAt] [datetime2](3) NOT NULL,
 	[modifiedAt] [datetime2](3) NOT NULL,
  CONSTRAINT [PK_oead_student_features] PRIMARY KEY CLUSTERED 
