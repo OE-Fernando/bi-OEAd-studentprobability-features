@@ -8,6 +8,8 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
+DROP TABLE IF EXISTS [ml].[oead_student_features];
+
 CREATE TABLE [ml].[oead_student_features](
 	[PK] [varchar](32) NOT NULL,
 	[studentId] [int] NOT NULL,
@@ -32,5 +34,11 @@ ALTER TABLE [ml].[oead_student_features] ADD  CONSTRAINT [DF_oead_student_featur
 GO
 
 ALTER TABLE [ml].[oead_student_features] ADD  CONSTRAINT [DF_oead_student_features_modifiedAt]  DEFAULT (sysutcdatetime()) FOR [modifiedAt]
+GO
+
+CREATE NONCLUSTERED INDEX [IX_oead_student_features_modifiedAt] ON [ml].[oead_student_features] ([modifiedAt])
+GO
+
+CREATE NONCLUSTERED INDEX [IX_oead_student_features_modifiedAt_studentId] ON [ml].[oead_student_features] ([modifiedAt], [studentId])
 GO
 
