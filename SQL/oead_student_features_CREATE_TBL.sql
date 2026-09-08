@@ -2,6 +2,18 @@ USE [SUP]
 GO
 
 /****** Object:  Table [ml].[oead_student_features]    Script Date: 6/2/2026 4:26:22 AM ******/
+
+-- ============================================================================
+-- This is a full schema SNAPSHOT (SSMS "Script Table as > CREATE To"), kept
+-- for provisioning a fresh environment or as a reference of the current
+-- definition. DO NOT run this against an environment where the table already
+-- has data -- the DROP TABLE IF EXISTS below will destroy it.
+--
+-- To change the live table's schema, write/use an ALTER TABLE script instead,
+-- e.g. SQL/oead_student_features_ALTER_ADD_max_pc_reservations.sql, then
+-- update this snapshot to match for documentation purposes.
+-- ============================================================================
+
 SET ANSI_NULLS ON
 GO
 
@@ -21,6 +33,7 @@ CREATE TABLE [ml].[oead_student_features](
 	[ageGroup] [varchar](5) NULL,
 	[studentHistory] [varchar](5) NULL,
 	[language] [varchar](2) NULL,
+	[max_pc_reservations] [tinyint] NULL,
 	[createdAt] [datetime2](3) NOT NULL,
 	[modifiedAt] [datetime2](3) NOT NULL,
  CONSTRAINT [PK_oead_student_features] PRIMARY KEY CLUSTERED 
