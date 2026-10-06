@@ -43,3 +43,21 @@ python sync.py
 
 python get_dynamodb_item.py S#1000092
 ```
+
+---
+
+## Claude Code skills used alongside this repo
+
+Ad-hoc work on this project (querying the shared SQL Server instance to spot-check
+tables, writing/scaffolding stored procedures, etc.) uses Claude Code skills that
+live outside this repo, at:
+
+```
+C:\Users\EDUCENTROS\Documents\AI\.claude\skills\
+```
+
+e.g. `query-database`, `write-stored-procedure`, `create-slow-moving-dimension`,
+`sync-lp2-table`. They're available from any repo on this machine via symlinks in
+the global skills directory (`C:\Users\EDUCENTROS\.claude\skills\`) -- no setup
+needed in this repo itself, but that `Documents\AI` workspace (and its
+`credentials.md`) is where to look if one of those skills needs updating.
