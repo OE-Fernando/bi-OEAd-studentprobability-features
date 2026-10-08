@@ -107,7 +107,11 @@ existing `sync_state.json` cursor (no reset required).
 
 After Step 5 (or the next scheduled run), spot-check the DynamoDB item for a
 student known to have recent PC activity, the same way we verified
-`max_pc_reservations`:
+`max_pc_reservations`.
+
+Run `SQL/find_students_with_recent_pc_activity.sql` to find a `studentId`
+with real PC activity in the trailing 45 days (same window/source table as
+STEP 4), then:
 
 ```powershell
 .venv\Scripts\python.exe get_dynamodb_item.py S#<studentId>
@@ -115,6 +119,8 @@ student known to have recent PC activity, the same way we verified
 
 Confirm `n_pc_reserved_45` and `n_pc_attended_45` are present with sane
 values (and that `n_pc_attended_45 <= n_pc_reserved_45` for that student).
+
+(This is how BI-8174 was actually verified before closing it.)
 
 ## Out of scope for this document (separate follow-up)
 
