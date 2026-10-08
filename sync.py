@@ -100,6 +100,8 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
             , studentHistory
             , language
             , max_pc_reservations
+            , n_pc_reserved_45
+            , n_pc_attended_45
             , createdAt
             , modifiedAt
 
@@ -124,6 +126,8 @@ def fetch_updated_rows(last_modified_at, last_student_id, page_size=MSSQL_PAGE_S
             , studentHistory
             , language
             , max_pc_reservations
+            , n_pc_reserved_45
+            , n_pc_attended_45
             , createdAt
             , modifiedAt
 
@@ -213,6 +217,8 @@ def build_dynamodb_item(row):
         "studentHistory": row["studentHistory"],
         "language": row["language"],
         "max_pc_reservations": row["max_pc_reservations"],
+        "n_pc_reserved_45": row["n_pc_reserved_45"],
+        "n_pc_attended_45": row["n_pc_attended_45"],
 
         "createdAt": datetime_to_iso(row["createdAt"]),
 

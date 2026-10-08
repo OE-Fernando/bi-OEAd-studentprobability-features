@@ -34,6 +34,8 @@ CREATE TABLE [ml].[oead_student_features](
 	[studentHistory] [varchar](5) NULL,
 	[language] [varchar](2) NULL,
 	[max_pc_reservations] [tinyint] NULL,
+	[n_pc_reserved_45] [int] NULL,
+	[n_pc_attended_45] [int] NULL,
 	[createdAt] [datetime2](3) NOT NULL,
 	[modifiedAt] [datetime2](3) NOT NULL,
  CONSTRAINT [PK_oead_student_features] PRIMARY KEY CLUSTERED 
